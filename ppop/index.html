@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Photo Uploader & Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <h1 class="title">Clean India</h1>
+    <p class="subtitle">
+      Upload one or many images, instantly preview them, and view full-size. 
+      Works offline—no files leave your device.
+    </p>
+
+    <section class="uploader">
+      <label id="dropzone" class="dropzone" tabindex="0" for="file-input">
+        <svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24" fill="none">
+          <path d="M7 10l5-5 5 5M12 5v14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <rect x="3" y="12" width="18" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <h2>Upload GPSPhoto</h2>
+        <p class="hint">
+          or click to choose files (PNG, JPG, GIF, WEBP — max 15 MB each)
+        </p>
+        <input id="file-input" type="file" accept="image/*" multiple capture="environment" />
+      </label>
+
+      <div id="grid" class="grid" aria-live="polite"></div>
+
+      <!-- GPS location display -->
+      <p id="location">📍 Location not retrieved yet.</p>
+
+      <!-- Submit button -->
+      <button id="submitBtn">Submit</button>
+    </section>
+  </main>
+
+  <dialog id="viewer">
+    <div class="modal-head">
+      <strong id="viewer-name">Preview</strong>
+      <button class="close" aria-label="Close" id="close-viewer">✕</button>
+    </div>
+    <div class="modal-body">
+      <img id="viewer-img" class="modal-img" alt="Full-size preview" />
+    </div>
+  </dialog>
+
+  <template id="card-tpl">
+    <figure class="card fade-in">
+      <button class="remove" title="Remove">✕</button>
+      <img class="thumb" alt="Uploaded image preview" />
+      <figcaption class="meta">
+        <span class="name"></span>
+        <span class="size"></span>
+      </figcaption>
+    </figure>
+  </template>
+
+  <script>
+    const locationOutput = document.getElementById("location");
+    let currentLat = null, currentLon = null, currentTown = null;
+
+    // Get GPS Location + Reverse Geocode
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async function (position) {
+            const lat = position.coords.latitude.toFixed(6);
+            const lon = position.coords.longitude.toFixed(6);
+
+            try {
+              // Call OpenStreetMap Nominatim API
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+                { headers: { "User-Agent": "CleanIndiaApp/1.0" } }
+              );
+              const data = await response.json();
+
+              // Choose best available place name
+              let town =
+                data.address.city ||
+                data.address.town ||
+                data.address.village ||
+                data.address.hamlet ||
+                data.address.county ||
+                "Unknown place";
+
+              currentLat = lat;
+              currentLon = lon;
+              currentTown = town;
+
+              locationOutput.innerHTML = `
+                📍 You are in: <strong>${town}</strong><br>
+                🌍 Coordinates: ${lat}, ${lon}<br>
+                <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank">View on Map</a>
+              `;
+            } catch (err) {
+              locationOutput.textContent = "⚠️ Failed to fetch place name.";
+              console.error(err);
+            }
+          },
+          function (error) {
+            locationOutput.textContent = "⚠️ Unable to retrieve location: " + error.message;
+          }
+        );
+      } else {
+        locationOutput.textContent = "❌ Geolocation is not supported by this browser.";
+      }
+    }
+
+    // Call GPS on page load
+    getLocation();
+
+    // Handle Submit button
+    document.getElementById("submitBtn").addEventListener("click", () => {
+      const files = document.getElementById("file-input").files;
+      if (files.length === 0) {
+        alert("Please upload at least one photo.");
+        return;
+      }
+      if (!currentTown) {
+        alert("Location not available yet. Please allow GPS access.");
+        return;
+      }
+
+      // Example: just log results
+      console.log("Submitted Photos:", files);
+      console.log("Town:", currentTown);
+      console.log("Coordinates:", currentLat, currentLon);
+
+      alert(`✅ Submitted!\nTown: ${currentTown}\nLatitude: ${currentLat}\nLongitude: ${currentLon}`);
+    });
+  </script>
+</body>
+</html>
